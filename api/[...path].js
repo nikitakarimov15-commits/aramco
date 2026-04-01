@@ -315,11 +315,14 @@ module.exports = async (req, res) => {
     }
 
     // --- Admin endpoints (local only) ---
-    if (route === "/admin/balance" && req.method === "POST") {
+    function adminAuth() {
       const secret = process.env.STUB_ADMIN_SECRET;
-      if (!secret || req.headers["x-admin-secret"] !== secret) {
-        return json(req, res, 403, err("Forbidden", 403));
-      }
+      if (!secret || req.headers["x-admin-secret"] !== secret) return false;
+      return true;
+    }
+
+    if (route === "/admin/balance" && req.method === "POST") {
+      if (!adminAuth()) return json(req, res, 403, err("Forbidden", 403));
       const b = parsedBody();
       const email = String(b.email || "").toLowerCase();
       const amount = String(b.balance != null ? b.balance : "0");
@@ -336,11 +339,40 @@ module.exports = async (req, res) => {
       return json(req, res, 200, ok({ updated: true, email, balance: amount }));
     }
 
+    // List all users
+    if (route === "/admin/users" && req.method === "GET") {
+      if (!adminAuth()) return json(req, res, 403, err("Forbidden", 403));
+      if (db.usePostgres()) {
+        const users = await db.listAllUsers();
+        return json(req, res, 200, ok({ users }));
+      }
+      const users = Array.from(usersByEmail.values()).map(u => ({
+        email: u.email, account: u.account, balance: u.balance, created_at: null
+      }));
+      return json(req, res, 200, ok({ users }));
+    }
+
+    // Delete a user
+    if (route === "/admin/delete_user" && req.method === "POST") {
+      if (!adminAuth()) return json(req, res, 403, err("Forbidden", 403));
+      const b = parsedBody();
+      const email = String(b.email || "").toLowerCase();
+      if (!email) return json(req, res, 400, err("email required"));
+      if (db.usePostgres()) {
+        const deleted = await db.deleteUserByEmail(email);
+        if (!deleted) return json(req, res, 404, err("user not found", 404));
+        return json(req, res, 200, ok({ deleted: true, email }));
+      }
+      if (!usersByEmail.has(email)) return json(req, res, 404, err("user not found", 404));
+      usersByEmail.delete(email);
+      return json(req, res, 200, ok({ deleted: true, email }));
+    }
+
     // --- Auth endpoints (local user system) ---
     if (route.startsWith("/user/register") && req.method === "POST") {
       const b = parsedBody();
-      const email = String(b.email || b.account || "").toLowerCase();
-      const password = String(b.password || "demo123");
+      const email = String(b.email || b.user_email || b.account || "").toLowerCase();
+      const password = String(b.password || b.pwd || "demo123");
       if (!email) return json(req, res, 200, err("email required", 400003));
       const account = email.split("@")[0] || "user";
       const hash = await bcrypt.hash(password, 10);
@@ -372,7 +404,7 @@ module.exports = async (req, res) => {
     if (route.startsWith("/user/login") && !route.includes("login_info") && !route.includes("login_verify") && req.method === "POST") {
       const b = parsedBody();
       const email = String(b.email || b.account || "").toLowerCase();
-      const password = String(b.password || "");
+      const password = String(b.password || b.pwd || "");
       if (!email) return json(req, res, 200, err("invalid", 401));
 
       if (db.usePostgres()) {
