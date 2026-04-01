@@ -24,27 +24,35 @@
     "sunburst": "Sunburst"
   },
   "register": {
+    "email": {
+      "btn": "Email",
+      "toast2": "Enter a valid email address"
+    },
     "phone": {
-      "placeholder": "Placeholder",
-      "btn": "Btn",
-      "toast1": "Toast1"
+      "btn": "Phone",
+      "placeholder": "Phone number",
+      "toast1": "Enter a valid phone number"
+    },
+    "inviteCode": {
+      "placeholder": "Invitation code (optional)",
+      "toast1": "Invalid invitation code"
+    },
+    "password": {
+      "toast2": "Passwords do not match"
+    },
+    "reNewPwd": {
+      "placeholder": "Confirm password",
+      "toast2": "Passwords do not match"
     },
     "whs": {
-      "placeholder": "Placeholder"
-    },
-    "email": {
-      "btn": "Btn",
-      "toast2": "Toast2"
-    },
-    "ws": "Ws",
-    "password": {
-      "toast2": "Toast2"
+      "placeholder": "WhatsApp (optional)"
     },
     "tele": {
-      "placeholder": "Placeholder"
+      "placeholder": "Telegram username (optional)"
     },
-    "tg": "Tg",
-    "registeraccount": "Registeraccount"
+    "ws": "Website",
+    "tg": "Telegram",
+    "registeraccount": "Create your account"
   },
   "tabbar": {
     "mission": "Missions",
