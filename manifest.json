@@ -11,17 +11,17 @@
     "theme_color": "#ffffff",
     "icons": [
         {
-            "src": "https://api.aramco.company/upload/img/69b92f278852.webp",
+            "src": "/upload/img/69b92f278852.webp",
             "sizes": "64x64",
             "type": "image/png"
         },
         {
-            "src": "https://api.aramco.company/upload/img/69b92f278852.webp",
+            "src": "/upload/img/69b92f278852.webp",
             "sizes": "192x192",
             "type": "image/png"
         },
         {
-            "src": "https://api.aramco.company/upload/img/69b92f278852.webp",
+            "src": "/upload/img/69b92f278852.webp",
             "sizes": "512x512",
             "type": "image/png"
         }
