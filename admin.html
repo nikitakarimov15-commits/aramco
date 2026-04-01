@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aramco Admin Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f2f5;min-height:100vh}
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.login-box{background:#fff;padding:40px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.1);width:100%;max-width:400px}
+.login-box h2{text-align:center;color:#1a7a4c;margin-bottom:24px}
+.login-box input{width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:15px;margin-bottom:16px}
+.login-box button{width:100%;padding:12px;background:#1a7a4c;color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer}
+.login-box button:hover{background:#15633e}
+.login-error{color:#e53e3e;text-align:center;margin-bottom:12px;font-size:14px}
+
+.dashboard{display:none;max-width:1100px;margin:0 auto;padding:20px}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.header h1{color:#1a7a4c;font-size:24px}
+.header .info{display:flex;gap:12px;align-items:center}
+.btn{padding:8px 18px;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:500}
+.btn-primary{background:#1a7a4c;color:#fff}.btn-primary:hover{background:#15633e}
+.btn-danger{background:#e53e3e;color:#fff}.btn-danger:hover{background:#c53030}
+.btn-sm{padding:5px 12px;font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:#fff;padding:20px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.stat-card .label{color:#666;font-size:13px;margin-bottom:4px}
+.stat-card .value{font-size:28px;font-weight:700;color:#1a7a4c}
+.card{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:20px;margin-bottom:20px}
+.card h3{margin-bottom:16px;color:#333}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid #eee;font-size:14px}
+th{background:#f7f7f7;font-weight:600;color:#555;position:sticky;top:0}
+tr:hover{background:#f9fafb}
+.balance-cell{font-weight:600;color:#1a7a4c}
+.balance-neg{color:#e53e3e}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:100;display:none}
+.modal{background:#fff;border-radius:12px;padding:28px;width:90%;max-width:420px;box-shadow:0 4px 20px rgba(0,0,0,.15)}
+.modal h3{margin-bottom:16px;color:#333}
+.modal label{display:block;margin-bottom:4px;font-size:13px;color:#555;font-weight:500}
+.modal input,.modal select{width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;margin-bottom:12px}
+.modal .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+.toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;color:#fff;font-size:14px;z-index:200;opacity:0;transition:opacity .3s}
+.toast.show{opacity:1}
+.toast-success{background:#1a7a4c}
+.toast-error{background:#e53e3e}
+.table-wrap{overflow-x:auto}
+@media(max-width:600px){.dashboard{padding:12px}.header h1{font-size:18px}th,td{padding:6px 8px;font-size:12px}}
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div class="login-wrap" id="loginScreen">
+  <div class="login-box">
+    <h2>Admin Dashboard</h2>
+    <div class="login-error" id="loginError" style="display:none"></div>
+    <input type="password" id="secretInput" placeholder="Enter admin secret" autocomplete="off">
+    <button onclick="adminLogin()">Sign In</button>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div class="dashboard" id="dashboard">
+  <div class="header">
+    <h1>Aramco Admin</h1>
+    <div class="info">
+      <button class="btn btn-primary" onclick="loadUsers()">Refresh</button>
+      <button class="btn btn-danger" onclick="adminLogout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card"><div class="label">Total Users</div><div class="value" id="statUsers">-</div></div>
+    <div class="stat-card"><div class="label">Total Balance</div><div class="value" id="statBalance">-</div></div>
+    <div class="stat-card"><div class="label">Avg Balance</div><div class="value" id="statAvg">-</div></div>
+  </div>
+
+  <div class="card">
+    <h3>All Registered Users</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Email</th><th>Account</th><th>Balance</th><th>Registered</th><th>Actions</th></tr></thead>
+        <tbody id="usersTable"><tr><td colspan="6" style="text-align:center;color:#999">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Balance Modal -->
+<div class="modal-overlay" id="balanceModal">
+  <div class="modal">
+    <h3 id="balanceModalTitle">Adjust Balance</h3>
+    <label>Email</label>
+    <input type="text" id="balEmail" readonly>
+    <label>Current Balance</label>
+    <input type="text" id="balCurrent" readonly>
+    <label>Action</label>
+    <select id="balAction" onchange="updatePreview()">
+      <option value="set">Set to exact amount</option>
+      <option value="add">Add to balance</option>
+      <option value="subtract">Subtract from balance</option>
+    </select>
+    <label>Amount ($)</label>
+    <input type="number" id="balAmount" step="0.01" placeholder="0.00" oninput="updatePreview()">
+    <label>New Balance Preview</label>
+    <input type="text" id="balPreview" readonly style="font-weight:700;color:#1a7a4c">
+    <div class="modal-actions">
+      <button class="btn" onclick="closeBalanceModal()" style="background:#eee">Cancel</button>
+      <button class="btn btn-primary" onclick="submitBalance()">Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h3>Confirm Delete</h3>
+    <p style="margin-bottom:16px">Are you sure you want to delete <strong id="deleteEmail"></strong>? This cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeDeleteModal()" style="background:#eee">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Delete User</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let SECRET = '';
+let usersData = [];
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast toast-' + type + ' show';
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+async function apiFetch(path, opts = {}) {
+  const res = await fetch('/api/' + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'x-admin-secret': SECRET, ...(opts.headers||{}) }
+  });
+  return res.json();
+}
+
+async function adminLogin() {
+  SECRET = document.getElementById('secretInput').value.trim();
+  if (!SECRET) return;
+  try {
+    const r = await apiFetch('admin/users');
+    if (r.status === 200) {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      sessionStorage.setItem('admin_secret', SECRET);
+      renderUsers(r.data.users);
+    } else {
+      document.getElementById('loginError').textContent = 'Invalid secret';
+      document.getElementById('loginError').style.display = 'block';
+    }
+  } catch(e) {
+    document.getElementById('loginError').textContent = 'Connection error';
+    document.getElementById('loginError').style.display = 'block';
+  }
+}
+
+function adminLogout() {
+  SECRET = '';
+  sessionStorage.removeItem('admin_secret');
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('secretInput').value = '';
+}
+
+async function loadUsers() {
+  const r = await apiFetch('admin/users');
+  if (r.status === 200) renderUsers(r.data.users);
+  else showToast('Failed to load users', 'error');
+}
+
+function renderUsers(users) {
+  usersData = users;
+  const tbody = document.getElementById('usersTable');
+  const totalBal = users.reduce((s,u) => s + parseFloat(u.balance || 0), 0);
+  document.getElementById('statUsers').textContent = users.length;
+  document.getElementById('statBalance').textContent = '$' + totalBal.toFixed(2);
+  document.getElementById('statAvg').textContent = users.length ? '$' + (totalBal / users.length).toFixed(2) : '-';
+
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999">No users registered yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = users.map((u, i) => {
+    const bal = parseFloat(u.balance || 0);
+    const balClass = bal < 0 ? 'balance-cell balance-neg' : 'balance-cell';
+    const date = u.created_at ? new Date(u.created_at).toLocaleDateString() : '-';
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${esc(u.email)}</td>
+      <td>${esc(u.account)}</td>
+      <td class="${balClass}">$${bal.toFixed(2)}</td>
+      <td>${date}</td>
+      <td class="actions">
+        <button class="btn btn-primary btn-sm" onclick="openBalanceModal('${esc(u.email)}',${bal})">Balance</button>
+        <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${esc(u.email)}')">Delete</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// Balance modal
+function openBalanceModal(email, current) {
+  document.getElementById('balEmail').value = email;
+  document.getElementById('balCurrent').value = '$' + current.toFixed(2);
+  document.getElementById('balAmount').value = '';
+  document.getElementById('balAction').value = 'set';
+  document.getElementById('balPreview').value = '';
+  document.getElementById('balanceModal').style.display = 'flex';
+}
+function closeBalanceModal() { document.getElementById('balanceModal').style.display = 'none'; }
+
+function updatePreview() {
+  const current = parseFloat(document.getElementById('balCurrent').value.replace('$','')) || 0;
+  const amount = parseFloat(document.getElementById('balAmount').value) || 0;
+  const action = document.getElementById('balAction').value;
+  let newBal = current;
+  if (action === 'set') newBal = amount;
+  else if (action === 'add') newBal = current + amount;
+  else if (action === 'subtract') newBal = current - amount;
+  document.getElementById('balPreview').value = '$' + newBal.toFixed(2);
+  document.getElementById('balPreview').style.color = newBal < 0 ? '#e53e3e' : '#1a7a4c';
+}
+
+async function submitBalance() {
+  const email = document.getElementById('balEmail').value;
+  const current = parseFloat(document.getElementById('balCurrent').value.replace('$','')) || 0;
+  const amount = parseFloat(document.getElementById('balAmount').value);
+  const action = document.getElementById('balAction').value;
+  if (isNaN(amount)) { showToast('Enter a valid amount', 'error'); return; }
+  let newBal = amount;
+  if (action === 'add') newBal = current + amount;
+  else if (action === 'subtract') newBal = current - amount;
+
+  const r = await apiFetch('admin/balance', {
+    method: 'POST',
+    body: JSON.stringify({ email, balance: newBal.toFixed(2) })
+  });
+  if (r.status === 200) {
+    showToast('Balance updated to $' + newBal.toFixed(2));
+    closeBalanceModal();
+    loadUsers();
+  } else {
+    showToast(r.msg || 'Error', 'error');
+  }
+}
+
+// Delete modal
+let deleteTarget = '';
+function openDeleteModal(email) { deleteTarget = email; document.getElementById('deleteEmail').textContent = email; document.getElementById('deleteModal').style.display = 'flex'; }
+function closeDeleteModal() { document.getElementById('deleteModal').style.display = 'none'; }
+async function confirmDelete() {
+  const r = await apiFetch('admin/delete_user', { method: 'POST', body: JSON.stringify({ email: deleteTarget }) });
+  if (r.status === 200) { showToast('User deleted'); closeDeleteModal(); loadUsers(); }
+  else showToast(r.msg || 'Error', 'error');
+}
+
+// Auto-login from session
+(function() {
+  const saved = sessionStorage.getItem('admin_secret');
+  if (saved) { SECRET = saved; document.getElementById('secretInput').value = saved; adminLogin(); }
+  document.getElementById('secretInput').addEventListener('keydown', e => { if(e.key==='Enter') adminLogin(); });
+})();
+</script>
+</body>
+</html>
