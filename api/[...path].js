@@ -100,9 +100,9 @@ function memEnsureUser(email) {
       password: "",
       password_hash: "",
       account: email.split("@")[0] || "user",
-      balance: "10000.00",
-      base_money: "10000.00",
-      available_money: "10000.00",
+      balance: "10.00",
+      base_money: "10.00",
+      available_money: "10.00",
     });
   }
   return usersByEmail.get(email);
@@ -360,9 +360,9 @@ module.exports = async (req, res) => {
         password,
         password_hash: "",
         account,
-        balance: "10000.00",
-        base_money: "10000.00",
-        available_money: "10000.00",
+        balance: "10.00",
+        base_money: "10.00",
+        available_money: "10.00",
       };
       usersByEmail.set(email, u);
       const { token, expires_time } = await issueToken(email);
