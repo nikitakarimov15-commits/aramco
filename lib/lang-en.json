@@ -1,0 +1,402 @@
+{
+  "series": {
+    "__base_bar__": "  Base Bar  ",
+    "graph": "Graph",
+    "treemap": "Treemap",
+    "chord": "Chord",
+    "map": "Map",
+    "heatmap": "Heatmap",
+    "bar": "Bar",
+    "lines": "Lines",
+    "custom": "Custom",
+    "pie": "Pie",
+    "sankey": "Sankey",
+    "radar": "Radar",
+    "__base__": "  Base  ",
+    "candlestick": "Candlestick",
+    "line": "Line",
+    "tree": "Tree",
+    "parallel": "Parallel",
+    "funnel": "Funnel",
+    "gauge": "Gauge",
+    "boxplot": "Boxplot",
+    "scatter": "Scatter",
+    "sunburst": "Sunburst"
+  },
+  "register": {
+    "phone": {
+      "placeholder": "Placeholder",
+      "btn": "Btn",
+      "toast1": "Toast1"
+    },
+    "whs": {
+      "placeholder": "Placeholder"
+    },
+    "email": {
+      "btn": "Btn",
+      "toast2": "Toast2"
+    },
+    "ws": "Ws",
+    "password": {
+      "toast2": "Toast2"
+    },
+    "tele": {
+      "placeholder": "Placeholder"
+    },
+    "tg": "Tg",
+    "registeraccount": "Registeraccount"
+  },
+  "tabbar": {
+    "mission": "Missions",
+    "project": "Project",
+    "index": "Home",
+    "income": "Income",
+    "service": "Service",
+    "myself": "Profile",
+    "spin": "Spin",
+    "vip": "VIP"
+  },
+  "vip": {
+    "min_invest_price": "Min Invest Price",
+    "dayprofit": "Dayprofit",
+    "can_buy_money": "Can Buy Money",
+    "buy_nums": "Buy Nums",
+    "price": "Price",
+    "profitPercent": "Profit rate",
+    "unlimit": "Unlimit",
+    "daytask": "Daytask",
+    "invalid": "Invalid",
+    "unable": "Unable",
+    "available_mone": "Available Mone",
+    "valid": "Valid",
+    "grade": "Grade",
+    "from_level": "From Level",
+    "can_buy_nums": "Can Buy Nums",
+    "uptime": "Uptime",
+    "claim": "Claim",
+    "singleprofit": "Singleprofit",
+    "to_level": "To Level",
+    "unlock": "Unlock",
+    "costmoney": "Costmoney",
+    "rent": "Rent",
+    "commission": "Commission",
+    "can_buy_money_not_enough": "Can Buy Money Not Enough"
+  },
+  "withdraw": {
+    "amount": {
+      "toast2": "Toast2",
+      "toast5": "Toast5",
+      "toast1": "Toast1",
+      "toast3": "Toast3",
+      "title": "Title",
+      "placeholder": "Placeholder"
+    },
+    "address": {
+      "toast1": "Toast1",
+      "placeholder2": "Placeholder2"
+    },
+    "time": "Time",
+    "bank_account_name": "Bank Account Name",
+    "bank_card_number_toast": "Bank Card Number Toast",
+    "bank_name": "Bank Name",
+    "bank_account_name_toast": "Bank Account Name Toast",
+    "fee": "Fee",
+    "bank_name_toast": "Bank Name Toast",
+    "contact": {
+      "placeholder": "Placeholder",
+      "toast": "Toast"
+    },
+    "bc_cpf_toast": "Bc Cpf Toast",
+    "success": "Success",
+    "bank_card_number": "Bank Card Number"
+  },
+  "invest": {
+    "day": "Day",
+    "buy_limit_money": "Buy Limit Money",
+    "periods": "Periods",
+    "receive": "Receive",
+    "start": "Start",
+    "profit_money": "Profit Money",
+    "end": "End",
+    "state2": "State2",
+    "income": "Income",
+    "cycle_invest": "Cycle Invest",
+    "state1": "State1",
+    "cycle": "Cycle"
+  },
+  "app": {
+    "nomore": "Nomore",
+    "recharge2": "Deposit",
+    "all": "All",
+    "next": "Next",
+    "team": "Team",
+    "help": "Help",
+    "recharge": "Deposit",
+    "share": "Share",
+    "close": "Close",
+    "tip": "Tip",
+    "copy": "Copy",
+    "kefu": "Kefu",
+    "readmore": "Readmore",
+    "prev": "Prev",
+    "detail": "Detail",
+    "noticesys": "Noticesys",
+    "noticeTitle": "Notice",
+    "noticeBtn": "View"
+  },
+  "account": {
+    "title": "Title",
+    "number": {
+      "toast3": "Toast3",
+      "placeholder": "Placeholder",
+      "toast1": "Toast1"
+    },
+    "experience_money": "Experience Money",
+    "withdraw": "Withdraw",
+    "base": "Base",
+    "financial": "Financial",
+    "success": "Success"
+  },
+  "invite_reward": {
+    "unlimit": "Unlimit",
+    "team_recharge_rewards_title": "Team Recharge Rewards Title",
+    "invite_reward_first_recharge_title": "Invite Reward First Recharge Title",
+    "ladder": "Ladder",
+    "lev": "Lev",
+    "invite_give_money_reward2": "Invite Give Money Reward2",
+    "recharge_reward_rebate_title2": "Recharge Reward Rebate Title2",
+    "remaining": "Remaining",
+    "grand_total": "Grand Total",
+    "recharge_reward_rebate_title": "Recharge Reward Rebate Title",
+    "recharge_reward_level_title": "Recharge Reward Level Title",
+    "receive": "Receive",
+    "recharge_reward_title": "Recharge Reward Title",
+    "team_recharge_rewards_daily_type": "Team Recharge Rewards Daily Type",
+    "invite_give_money_reward": "Invite Give Money Reward",
+    "team_recharge_rewards_cumulative_type": "Team Recharge Rewards Cumulative Type",
+    "has_invited_num": "Has Invited Num",
+    "team_recharge_rewards": "Team Recharge Rewards",
+    "recharge_reward": "Recharge Reward",
+    "invite_reward": "Invite Reward",
+    "number": "Number"
+  },
+  "invite": {
+    "slogan6": "Slogan6"
+  },
+  "task": {
+    "content": "Content",
+    "submit": "Submit",
+    "title": "Title",
+    "no_task_tip": "No Task Tip",
+    "no_more_task": "No More Task",
+    "step": "Step",
+    "go_to_buy": "Go To Buy",
+    "gain": "Gain",
+    "finish_note": "Finish Note"
+  },
+  "friends_circle": {
+    "receive_reward": "Receive Reward",
+    "upload_tips2": "Upload Tips2",
+    "receive_reward_success": "Receive Reward Success",
+    "audited_fail": "Audited Fail",
+    "already_received": "Already Received",
+    "auditing": "Auditing",
+    "task_info": "Task Info",
+    "upload_tips": "Upload Tips",
+    "submit": "Submit",
+    "submit_success": "Submit Success"
+  },
+  "index": {
+    "btn": {
+      "site": "Website",
+      "app": "Download app",
+      "tikuan": "Withdraw"
+    },
+    "regular": "Regular",
+    "home": {
+      "memberlist": "Member list"
+    }
+  },
+  "myself": {
+    "btn": {
+      "dengchu": "Dengchu",
+      "caiwu": "Caiwu",
+      "lpwd": "Lpwd",
+      "zhuanzhuang": "Zhuanzhuang"
+    },
+    "recharge": {
+      "title": "Title"
+    }
+  },
+  "recharge": {
+    "amount": {
+      "placeholder": "Placeholder",
+      "min": "Min",
+      "tip": "Tip"
+    },
+    "ok": "Ok",
+    "channel": "Channel",
+    "address": "Address"
+  },
+  "tasking2": {
+    "gif": "Gif"
+  },
+  "mission": {
+    "completed": "Completed",
+    "grabs_successfully": "Grabs Successfully",
+    "today_income": "Today Income",
+    "grab": "Grab",
+    "increase": "Increase",
+    "terminal": "Terminal",
+    "video_watch_too_short": "Video Watch Too Short",
+    "rule": "Rule",
+    "normal": "Normal",
+    "processing": "Processing"
+  },
+  "lottery": {
+    "tip3": "Tip3",
+    "tip5": "Tip5",
+    "btn": "Select",
+    "open": "Open",
+    "tip": "Tip",
+    "tip4": "Tip4"
+  },
+  "live": {
+    "com": "Com"
+  },
+  "login": {
+    "loginBtn": "Log in",
+    "loginBtn2": "Continue",
+    "registerBtn": "Create account",
+    "registerBtn2": "Register",
+    "loginaccount": "Account login",
+    "jpg": "",
+    "password": {
+      "placeholder": "Password",
+      "toast1": "Please enter your password"
+    },
+    "vcode": {
+      "toast1": "Invalid or expired verification code",
+      "placeholder": "Verification code"
+    },
+    "email": {
+      "btn": "Email",
+      "placeholder": "Email address",
+      "toast1": "Please enter a valid email"
+    },
+    "telegram": {
+      "toast1": "Open Telegram to continue"
+    },
+    "phone": {
+      "btn": "Phone"
+    },
+    "ruleCheck": {
+      "toast1": "Please accept the terms and privacy policy"
+    }
+  },
+  "gmx": {
+    "com": "Com"
+  },
+  "title": {
+    "0": {
+      "text": "Text"
+    }
+  },
+  "legend": {
+    "plain": "Plain",
+    "scroll": "Scroll"
+  },
+  "kyc": {
+    "auth_tip1": "Auth Tip1",
+    "passport": "Passport",
+    "desc": "Desc",
+    "auth_tip2": "Auth Tip2",
+    "name": "Name",
+    "title": "Title"
+  },
+  "auth": {
+    "agree": "Agree",
+    "telegram": {
+      "placeholder": "Placeholder"
+    }
+  },
+  "gmail": {
+    "com": "Com"
+  },
+  "team": {
+    "total_income": "Total Income",
+    "valid": "Valid",
+    "recharge": "Recharge",
+    "team_total_brokerage": "Team Total Brokerage",
+    "commission": "Commission",
+    "total_brokerage": "Total Brokerage",
+    "total_infinite_num": "Total Infinite Num",
+    "select_date": "Select Date",
+    "today_first_recharge_num": "Today First Recharge Num",
+    "today_first_extract_num": "Today First Extract Num",
+    "rewards": "Rewards",
+    "register": "Register",
+    "header2": "Header2",
+    "today_infinite_user": "Today Infinite User"
+  },
+  "outlook": {
+    "com": "Com"
+  },
+  "sign": {
+    "desc": "Desc",
+    "day": "Day",
+    "every_day": "Every Day"
+  },
+  "notice": {
+    "title": "Title",
+    "tips": "Tips"
+  },
+  "report": {
+    "recharge": "Recharge"
+  },
+  "gtm": {
+    "start": "Start"
+  },
+  "task12": {
+    "png": "Png"
+  },
+  "timeline": {
+    "slider": "Slider"
+  },
+  "nate": {
+    "com": "Com"
+  },
+  "icloud": {
+    "com": "Com"
+  },
+  "nodejs": {
+    "util": {
+      "inspect": {
+        "custom": "Custom"
+      }
+    }
+  },
+  "message": {
+    "intl": "Intl"
+  },
+  "moment": {
+    "utc": "Utc"
+  },
+  "video": {
+    "title": "Title"
+  },
+  "hotmail": {
+    "com": "Com"
+  },
+  "yahoo": {
+    "com": "Com"
+  },
+  "www": {
+    "youtube": {
+      "com": "Com"
+    }
+  },
+  "pointer": {
+    "color": "Color"
+  }
+}
