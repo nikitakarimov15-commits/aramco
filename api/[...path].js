@@ -391,6 +391,69 @@ module.exports = async (req, res) => {
       return json(req, res, 200, ok({ token, expires_time, user: userRow(u) }));
     }
 
+    // --- App/login config (local, not proxied) ---
+    // These must be handled locally so captcha/registration settings
+    // stay compatible with our own auth system.
+    if ((route === "/user/login_info" && req.method === "POST") ||
+        (route === "/user/app_info" && req.method === "GET")) {
+      // Fetch upstream config and override auth-related fields
+      return new Promise((resolve) => {
+        const url = new URL(UPSTREAM + "/api" + route);
+        const mod = url.protocol === "https:" ? https : http;
+        const proxyReq = mod.request(url, { method: "GET", timeout: 8000 }, (proxyRes) => {
+          let body = "";
+          proxyRes.on("data", (c) => (body += c));
+          proxyRes.on("end", () => {
+            try {
+              const upstream = JSON.parse(body);
+              const d = upstream.data || {};
+              // Override registration/captcha settings for our local auth
+              if (d.register_info) {
+                d.register_info.register_is_captcha = "false";
+                d.register_info.invitation_code_require = "false";
+              }
+              if (d.setting) {
+                d.setting.register_is_captcha = "false";
+                d.setting.google_secret_status = "false";
+              }
+              json(req, res, 200, upstream);
+            } catch (e) {
+              // Fallback: return minimal local config
+              json(req, res, 200, ok({
+                register_info: {
+                  register_is_captcha: "false",
+                  invitation_code_require: "false",
+                  is_repeat_password: "true",
+                  register_account_status: "true",
+                },
+                setting: {
+                  register_is_captcha: "false",
+                  index_is_login: "false",
+                  pwa_app_name: "Aramco",
+                },
+                theme: 1,
+              }));
+            }
+            resolve();
+          });
+          proxyRes.on("error", () => {
+            json(req, res, 200, ok({ register_info: { register_is_captcha: "false" }, setting: {}, theme: 1 }));
+            resolve();
+          });
+        });
+        proxyReq.on("error", () => {
+          json(req, res, 200, ok({ register_info: { register_is_captcha: "false" }, setting: {}, theme: 1 }));
+          resolve();
+        });
+        proxyReq.on("timeout", () => {
+          proxyReq.destroy();
+          json(req, res, 200, ok({ register_info: { register_is_captcha: "false" }, setting: {}, theme: 1 }));
+          resolve();
+        });
+        proxyReq.end();
+      });
+    }
+
     if (route === "/user/login_verify" && req.method === "GET") {
       applyCors(req, res);
       res.setHeader("Content-Type", "image/png");
