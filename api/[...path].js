@@ -198,7 +198,14 @@ function proxyToUpstream(req, res, route, rawBody) {
         res.statusCode = proxyRes.statusCode || 200;
         proxyRes.pipe(res);
         proxyRes.on("end", resolve);
-        proxyRes.on("error", reject);
+        proxyRes.on("error", (e) => {
+          if (!res.headersSent) {
+            json(req, res, 502, err("upstream stream error: " + e.message, 502));
+          } else {
+            res.destroy();
+          }
+          resolve();
+        });
       }
     );
 
@@ -214,6 +221,7 @@ function proxyToUpstream(req, res, route, rawBody) {
     });
 
     if (rawBody && rawBody.length > 0) {
+      proxyReq.setHeader("Content-Length", rawBody.length);
       proxyReq.write(rawBody);
     }
     proxyReq.end();
@@ -243,7 +251,15 @@ function proxyUpload(req, res, uploadPath) {
         res.statusCode = proxyRes.statusCode || 200;
         proxyRes.pipe(res);
         proxyRes.on("end", resolve);
-        proxyRes.on("error", reject);
+        proxyRes.on("error", (e) => {
+          if (!res.headersSent) {
+            res.statusCode = 502;
+            res.end("upstream stream error");
+          } else {
+            res.destroy();
+          }
+          resolve();
+        });
       }
     );
 
