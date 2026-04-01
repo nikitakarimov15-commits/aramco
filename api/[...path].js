@@ -306,10 +306,44 @@ module.exports = async (req, res) => {
     ? await collectRawBody(req)
     : null;
 
-  // Helper to parse JSON from raw body
+  /** Parse JSON or x-www-form-urlencoded (SPA sometimes posts form-style bodies). */
   function parsedBody() {
     if (!rawBody || rawBody.length === 0) return {};
-    try { return JSON.parse(rawBody.toString()); } catch (e) { return {}; }
+    const str = rawBody.toString();
+    try {
+      return JSON.parse(str);
+    } catch (e) {
+      const ct = String(req.headers["content-type"] || "").toLowerCase();
+      if (ct.includes("application/x-www-form-urlencoded") || str.includes("=")) {
+        try {
+          const params = new URLSearchParams(str);
+          const o = {};
+          params.forEach((v, k) => {
+            o[k] = v;
+          });
+          if (Object.keys(o).length) return o;
+        } catch (e2) {}
+      }
+      return {};
+    }
+  }
+
+  function pickEmail(b) {
+    const raw =
+      b.email ||
+      b.user_email ||
+      b.userEmail ||
+      b.account ||
+      b.username ||
+      b.mail ||
+      b.login ||
+      "";
+    return String(raw).trim().toLowerCase();
+  }
+
+  function pickPassword(b) {
+    const raw = b.password ?? b.pwd ?? b.pass ?? b.user_pwd ?? "";
+    return String(raw);
   }
 
   try {
@@ -410,8 +444,8 @@ module.exports = async (req, res) => {
     // --- Auth endpoints (local user system) ---
     if (route.startsWith("/user/register") && req.method === "POST") {
       const b = parsedBody();
-      const email = String(b.email || b.user_email || b.account || "").toLowerCase();
-      const password = String(b.password || b.pwd || "demo123");
+      const email = pickEmail(b);
+      const password = pickPassword(b) || "demo123";
       if (!email) return json(req, res, 200, err("email required", 400003));
       const account = email.split("@")[0] || "user";
       const hash = await bcrypt.hash(password, 10);
@@ -442,8 +476,8 @@ module.exports = async (req, res) => {
 
     if (route.startsWith("/user/login") && !route.includes("login_info") && !route.includes("login_verify") && req.method === "POST") {
       const b = parsedBody();
-      const email = String(b.email || b.account || "").toLowerCase();
-      const password = String(b.password || b.pwd || "");
+      const email = pickEmail(b);
+      const password = pickPassword(b);
       if (!email) return json(req, res, 200, err("invalid", 401));
 
       if (db.usePostgres()) {
