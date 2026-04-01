@@ -2,10 +2,15 @@
 <html lang="en" googleoff:all translate="no">
   
 <head>
-    <!-- Aramco.company: API origin is under your control. Point DNS + TLS to your backend. -->
+    <!-- API base override:
+         - On Vercel preview (*.vercel.app): use same-origin so /api works immediately.
+         - On production domain: use api.aramco.company (separate hostname).
+    -->
     <script>
       (function () {
-        var u = "https://api.aramco.company";
+        var host = window.location.hostname || "";
+        var isVercelPreview = host.endsWith(".vercel.app");
+        var u = isVercelPreview ? window.location.origin : "https://api.aramco.company";
         if (typeof window.__ARAMCO_API_BASE__ === "undefined") {
           window.__ARAMCO_API_BASE__ = u;
         }
