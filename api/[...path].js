@@ -305,13 +305,34 @@ module.exports = async (req, res) => {
   }
 
   try {
-    if (db.usePostgres()) {
-      await db.ensureSchema();
-    }
-
     // --- Upload/image proxy (paths like upload/img/..., upload/files/...) ---
+    // Handle these before DB init so they work even if Postgres is down.
     if (route.startsWith("/upload/")) {
       return proxyUpload(req, res, route.slice(1));
+    }
+
+    // --- Health/debug endpoint ---
+    if (route === "/admin/health") {
+      const info = {
+        postgres_configured: db.usePostgres(),
+        postgres_url_prefix: (db.resolvePostgresUrl() || "").slice(0, 30) + "...",
+        timestamp: new Date().toISOString(),
+      };
+      if (db.usePostgres()) {
+        try {
+          await db.ensureSchema();
+          info.postgres_connected = true;
+        } catch (e) {
+          info.postgres_connected = false;
+          info.postgres_error = e.message;
+        }
+      }
+      return json(req, res, 200, ok(info));
+    }
+
+    // Init DB schema (only if Postgres is configured)
+    if (db.usePostgres()) {
+      await db.ensureSchema();
     }
 
     // --- Admin endpoints (local only) ---
