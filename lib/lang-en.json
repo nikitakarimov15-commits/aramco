@@ -54,6 +54,23 @@
     "tg": "Telegram",
     "registeraccount": "Create your account"
   },
+  "changPwd": {
+    "oldPwd": {
+      "placeholder": "Current password",
+      "toast1": "Please enter your current password"
+    },
+    "newPwd": {
+      "placeholder": "New password",
+      "toast1": "Enter a new password",
+      "toast2": "Password does not meet requirements"
+    },
+    "reNewPwd": {
+      "placeholder": "Confirm new password",
+      "toast1": "Please confirm your new password",
+      "toast2": "Passwords do not match"
+    },
+    "success": "Password updated successfully"
+  },
   "tabbar": {
     "mission": "Missions",
     "project": "Project",
@@ -120,20 +137,39 @@
   },
   "invest": {
     "day": "Day",
-    "buy_limit_money": "Buy Limit Money",
+    "buy_limit_money": "Minimum purchase",
     "periods": "Periods",
     "receive": "Receive",
     "start": "Start",
-    "profit_money": "Profit Money",
+    "profit_money": "Profit",
     "end": "End",
-    "state2": "State2",
+    "state2": "Ended",
     "income": "Income",
-    "cycle_invest": "Cycle Invest",
-    "state1": "State1",
-    "cycle": "Cycle"
+    "cycle_invest": "Cycle investment",
+    "state1": "Active",
+    "cycle": "Cycle",
+    "buyNow": "Buy now",
+    "canBuyLevel": "Required level",
+    "canDaybuyNum": "Daily purchase limit",
+    "canReceive": "Receivable",
+    "canTotalBuyNum": "Total purchase limit",
+    "canTotalBuyNumsUnit": "Times",
+    "costMoney": "Cost",
+    "hourIncome": "Hourly income",
+    "investLog": "Investment log",
+    "orderIntro": "Order details",
+    "orderNo": "Order no.",
+    "productCloseTime": "Closing time",
+    "productName": "Product",
+    "productOpenTime": "Opening time",
+    "profitType": "Profit type",
+    "returnMoney": "Return amount",
+    "returnTime": "Return time",
+    "teamRebate": "Team rebate",
+    "totalIncome": "Total income"
   },
   "app": {
-    "nomore": "Nomore",
+    "nomore": "No more",
     "recharge2": "Deposit",
     "all": "All",
     "next": "Next",
@@ -144,25 +180,34 @@
     "close": "Close",
     "tip": "Tip",
     "copy": "Copy",
-    "kefu": "Kefu",
-    "readmore": "Readmore",
-    "prev": "Prev",
-    "detail": "Detail",
-    "noticesys": "Noticesys",
+    "kefu": "Support",
+    "readmore": "Read more",
+    "prev": "Previous",
+    "detail": "Details",
+    "noticesys": "System notice",
     "noticeTitle": "Notice",
-    "noticeBtn": "View"
+    "noticeBtn": "View",
+    "confirmText": "Confirm",
+    "cancelText": "Cancel",
+    "totalBalance": "Total balance",
+    "welcomeTitle": "Welcome",
+    "welcomeTitle2": "Glad you are here",
+    "oneClickBuy": "Buy now",
+    "commonProblem": "FAQ",
+    "commonProblemTip": "Common questions and answers"
   },
   "account": {
-    "title": "Title",
+    "title": "My account",
     "number": {
-      "toast3": "Toast3",
-      "placeholder": "Placeholder",
-      "toast1": "Toast1"
+      "toast3": "Invalid format",
+      "placeholder": "Phone or account number",
+      "toast1": "Enter a valid number"
     },
-    "experience_money": "Experience Money",
+    "experience_money": "Experience balance",
     "withdraw": "Withdraw",
-    "base": "Base",
-    "financial": "Financial",
+    "base": "Available balance",
+    "marginBalance": "Margin balance",
+    "financial": "Financial account",
     "success": "Success"
   },
   "invite_reward": {
@@ -227,10 +272,10 @@
   },
   "myself": {
     "btn": {
-      "dengchu": "Dengchu",
-      "caiwu": "Caiwu",
-      "lpwd": "Lpwd",
-      "zhuanzhuang": "Zhuanzhuang"
+      "dengchu": "Log out",
+      "caiwu": "Wallet",
+      "lpwd": "Change password",
+      "zhuanzhuang": "Transfer"
     },
     "recharge": {
       "title": "Title"
@@ -323,9 +368,13 @@
     "title": "Title"
   },
   "auth": {
-    "agree": "Agree",
+    "agree": "I agree to the",
+    "termOfUse": "Terms of use",
+    "privacyPolicy": "Privacy policy",
+    "tgAutologinBtn": "Continue with Telegram",
+    "tgAutologinBtnDesc": "Link your Telegram to sign in faster",
     "telegram": {
-      "placeholder": "Placeholder"
+      "placeholder": "@username"
     }
   },
   "gmail": {

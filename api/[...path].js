@@ -753,6 +753,33 @@ module.exports = async (req, res) => {
       return json(req, res, 200, ok(userRow(u)));
     }
 
+    // Change password (SPA: POST /user/edit_login_pwd)
+    if (route === "/user/edit_login_pwd" && req.method === "POST") {
+      if (!email) return json(req, res, 200, err("unauthorized", 401));
+      const b = parsedBody();
+      const oldPwd = String(b.pwd ?? b.old_pwd ?? "").trim();
+      const newPwd = String(b.new_pwd ?? "").trim();
+      const repeatPwd = String(b.repeat_new_pwd ?? "").trim();
+      if (!oldPwd) return json(req, res, 200, err("old_required", 400));
+      if (!newPwd) return json(req, res, 200, err("new_required", 400));
+      if (newPwd !== repeatPwd) return json(req, res, 200, err("mismatch", 400));
+      if (db.usePostgres()) {
+        const u = await db.findUserByEmail(email);
+        if (!u) return json(req, res, 200, err("unauthorized", 401));
+        const okOld = await bcrypt.compare(oldPwd, u.password_hash);
+        if (!okOld) return json(req, res, 200, err("wrong_password", 400));
+        const hash = await bcrypt.hash(newPwd, 10);
+        await db.updatePasswordHash(email, hash);
+        return json(req, res, 200, ok({}));
+      }
+      const u = memEnsureUser(email);
+      if (u.password && u.password !== oldPwd) {
+        return json(req, res, 200, err("wrong_password", 400));
+      }
+      u.password = newPwd;
+      return json(req, res, 200, ok({}));
+    }
+
     // --- Everything else: proxy to upstream ---
     if (email && isLocalIssuedToken(req) && route === "/user/upload" && req.method === "POST") {
       return proxyToUpstream(req, res, route, rawBody, { stripAuth: true });
