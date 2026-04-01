@@ -1,0 +1,5 @@
+node_modules/
+.vercel/
+hts-cache/
+*.log
+cookies.txt

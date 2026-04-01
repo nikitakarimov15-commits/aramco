@@ -1,0 +1,28 @@
+{
+    "name": "Aramco",
+    "short_name": "Aramco",
+    "start_url": "\/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "lang": "en",
+    "scope": "\/",
+    "description": "Aramco",
+    "theme_color": "#ffffff",
+    "icons": [
+        {
+            "src": "https:\/\/api.aramcoinvest.org\/upload\/img\/69b92f278852.webp",
+            "sizes": "64x64",
+            "type": "image\/png"
+        },
+        {
+            "src": "https:\/\/api.aramcoinvest.org\/upload\/img\/69b92f278852.webp",
+            "sizes": "192x192",
+            "type": "image\/png"
+        },
+        {
+            "src": "https:\/\/api.aramcoinvest.org\/upload\/img\/69b92f278852.webp",
+            "sizes": "512x512",
+            "type": "image\/png"
+        }
+    ]
+}
