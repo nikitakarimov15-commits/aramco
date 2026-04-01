@@ -17,6 +17,14 @@ const https = require("https");
 const http = require("http");
 const bcrypt = require("bcryptjs");
 const db = require("../lib/db");
+const langEn = require("../lib/lang-en.json");
+
+/** Single support entry — Telegram only (per product requirement). */
+const TELEGRAM_SUPPORT = {
+  name: "Live Support",
+  link: "https://t.me/LiveSupport24seven",
+  image: "https://telegram.org/img/t_logo.svg",
+};
 
 const UPSTREAM = (process.env.UPSTREAM_API || "https://api.aramcoinvest.net").replace(/\/+$/, "");
 
@@ -330,6 +338,16 @@ module.exports = async (req, res) => {
       return json(req, res, 200, ok(info));
     }
 
+    // Locale strings: must be raw nested JSON (no {status,msg,data}) so loadLanguageAsync →
+    // mergeLocaleMessage(locale, body) receives tabbar/app/vip keys at the root. Upstream
+    // returns wrapped JSON and the UI shows raw keys like tabbar.index.
+    if (route === "/public/get_lang_json" && req.method === "GET") {
+      applyCors(req, res);
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.statusCode = 200;
+      return res.end(JSON.stringify(langEn));
+    }
+
     // Init DB schema (only if Postgres is configured)
     if (db.usePostgres()) {
       await db.ensureSchema();
@@ -484,7 +502,11 @@ module.exports = async (req, res) => {
               if (d.setting) {
                 d.setting.register_is_captcha = "false";
                 d.setting.google_secret_status = "false";
+                d.setting.salesmartly_src = "";
               }
+              // Floating help / chat: only Telegram @LiveSupport24seven
+              d.customer = [TELEGRAM_SUPPORT];
+              upstream.data = d;
               json(req, res, 200, upstream);
             } catch (e) {
               // Fallback: return minimal local config
@@ -499,24 +521,41 @@ module.exports = async (req, res) => {
                   register_is_captcha: "false",
                   index_is_login: "false",
                   pwa_app_name: "Aramco",
+                  salesmartly_src: "",
                 },
+                customer: [TELEGRAM_SUPPORT],
                 theme: 1,
               }));
             }
             resolve();
           });
           proxyRes.on("error", () => {
-            json(req, res, 200, ok({ register_info: { register_is_captcha: "false" }, setting: {}, theme: 1 }));
+            json(req, res, 200, ok({
+              register_info: { register_is_captcha: "false" },
+              setting: { salesmartly_src: "" },
+              customer: [TELEGRAM_SUPPORT],
+              theme: 1,
+            }));
             resolve();
           });
         });
         proxyReq.on("error", () => {
-          json(req, res, 200, ok({ register_info: { register_is_captcha: "false" }, setting: {}, theme: 1 }));
+          json(req, res, 200, ok({
+            register_info: { register_is_captcha: "false" },
+            setting: { salesmartly_src: "" },
+            customer: [TELEGRAM_SUPPORT],
+            theme: 1,
+          }));
           resolve();
         });
         proxyReq.on("timeout", () => {
           proxyReq.destroy();
-          json(req, res, 200, ok({ register_info: { register_is_captcha: "false" }, setting: {}, theme: 1 }));
+          json(req, res, 200, ok({
+            register_info: { register_is_captcha: "false" },
+            setting: { salesmartly_src: "" },
+            customer: [TELEGRAM_SUPPORT],
+            theme: 1,
+          }));
           resolve();
         });
         proxyReq.end();
