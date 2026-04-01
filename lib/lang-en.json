@@ -278,18 +278,18 @@
       "zhuanzhuang": "Transfer"
     },
     "recharge": {
-      "title": "Title"
+      "title": "Deposit"
     }
   },
   "recharge": {
     "amount": {
-      "placeholder": "Placeholder",
-      "min": "Min",
-      "tip": "Tip"
+      "placeholder": "Enter amount (USDT)",
+      "min": "Minimum",
+      "tip": "Use the address below for your transfer"
     },
-    "ok": "Ok",
-    "channel": "Channel",
-    "address": "Address"
+    "ok": "Submit",
+    "channel": "Network",
+    "address": "Deposit address"
   },
   "tasking2": {
     "gif": "Gif"

