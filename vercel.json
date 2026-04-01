@@ -11,6 +11,11 @@
       ]
     }
   ],
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "^/api/(.*)$", "dest": "/api/router?path=$1" },
+    { "src": "^(?!/api/).*$", "dest": "/index.html" }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
