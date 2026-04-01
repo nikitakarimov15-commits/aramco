@@ -1,0 +1,1 @@
+import{_ as s,o,c as r,w as n}from"./index-8920794d.js";const a={class:":uno: container-form w-full rd-$radius"};const t=s({},[["render",function(s,t){return o(),r("div",a,[n(s.$slots,"default")])}]]);export{t as _};

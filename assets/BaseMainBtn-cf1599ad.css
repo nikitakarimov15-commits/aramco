@@ -1,0 +1,1 @@
+.base-main-btn{background:var(--primary)}.base-main-btn.disable,.base-main-btn.loading{pointer-events:none;cursor:not-allowed}.base-main-btn.loading{opacity:.8}.base-main-btn.disable{filter:grayscale(100%);color:#ccc}

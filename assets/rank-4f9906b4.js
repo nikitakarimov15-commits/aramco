@@ -1,0 +1,1 @@
+import{_ as e}from"./Rank.vue_vue_type_script_setup_true_lang-f03965d8.js";import{b as t}from"./route-block-83d24a4e.js";import{_ as o,o as s,q as r}from"./index-8920794d.js";import"./BaseUserTab.vue_vue_type_style_index_0_lang-9da38b9d.js";const n={};"function"==typeof t&&t(n);const _=o(n,[["render",function(t,o){const n=e;return s(),r(n)}]]);export{_ as default};

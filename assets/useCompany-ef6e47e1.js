@@ -1,0 +1,1 @@
+import{D as t,ae as n,aK as a}from"./index-8920794d.js";function o(){const o=t("");return{content:o,getCompany:async()=>{const t=n();try{const t=await a.getHelpInfo();o.value=t.data.content}finally{t.close()}}}}export{o as u};

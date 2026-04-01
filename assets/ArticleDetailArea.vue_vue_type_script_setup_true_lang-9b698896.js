@@ -1,0 +1,1 @@
+import{d as t,o as e,q as a,a4 as i}from"./index-8920794d.js";const l=t({__name:"ArticleDetailArea",props:{detail:{type:String,default:""},title:{type:String,default:""}},setup:t=>(l,r)=>{const s=i;return e(),a(s,{detail:t.detail,title:t.title},null,8,["detail","title"])}});export{l as _};
