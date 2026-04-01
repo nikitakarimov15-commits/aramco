@@ -8,11 +8,9 @@
     -->
     <script>
       (function () {
-        var host = window.location.hostname || "";
-        var isVercelPreview = host.endsWith(".vercel.app");
-        var u = isVercelPreview ? window.location.origin : "https://api.aramco.company";
+        // Always use same-origin — our API proxies everything including uploads
         if (typeof window.__ARAMCO_API_BASE__ === "undefined") {
-          window.__ARAMCO_API_BASE__ = u;
+          window.__ARAMCO_API_BASE__ = window.location.origin;
         }
       })();
     </script>

@@ -13,10 +13,20 @@
   ],
   "routes": [
     { "handle": "filesystem" },
+    { "src": "^/api/upload/(.*)$", "dest": "/api/router?path=upload/$1" },
+    { "src": "^/upload/(.*)$", "dest": "/api/router?path=upload/$1" },
     { "src": "^/api/(.*)$", "dest": "/api/router?path=$1" },
-    { "src": "^(?!/api/).*$", "dest": "/index.html" }
+    { "src": "^(?!/api/)(?!/upload/).*$", "dest": "/index.html" }
   ],
   "rewrites": [
+    {
+      "source": "/api/upload/(.*)",
+      "destination": "/api/router?path=upload/$1"
+    },
+    {
+      "source": "/upload/(.*)",
+      "destination": "/api/router?path=upload/$1"
+    },
     {
       "source": "/api/(.*)",
       "destination": "/api/router?path=$1"
